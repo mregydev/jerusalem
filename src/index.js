@@ -1,21 +1,18 @@
-import fs from 'fs';
+import multiparty from 'multiparty';
 
-export default function testFunc() {
-    fs.createReadStream('test.txt').on('data', (data) => console.log(data))
-    console.log("this is a simple test");
+class Jerusalem {
+    constructor(options) {
+        this.files = [];
+        this.options = options;
+    }
+
+    get Files() {
+        return this.files;
+    }
+
+    init() {
+
+    }
 }
 
-
-export 
-
-
-
-
-
-
-
-
-
-      function testFun2() {
-    console.log("this is the second test function");
-}
+export default Jerusalem;
