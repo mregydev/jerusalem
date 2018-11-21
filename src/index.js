@@ -1,5 +1,7 @@
 import multiparty from 'multiparty';
 
+import file from './file';
+
 class Jerusalem {
     constructor(options) {
         this.files = [];
@@ -10,8 +12,19 @@ class Jerusalem {
         return this.files;
     }
 
-    init() {
+    AddFile() {
+           this.files.push(new file(this.options));  
+    }
 
+
+    handle(form)
+    {
+        form.on('part',(part)=>{
+             
+            if(part.file){
+ 
+            };
+        });
     }
 }
 

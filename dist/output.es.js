@@ -1,14 +1,19 @@
-import crypto from 'crypto';
-import path from 'path';
 import buffer from 'buffer';
 import util from 'util';
 import events from 'events';
 import fs from 'fs';
-import stream from 'stream';
 import os from 'os';
 import string_decoder from 'string_decoder';
+import path from 'path';
+import stream from 'stream';
+import crypto from 'crypto';
+import domain from 'domain';
 
 var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+function commonjsRequire () {
+	throw new Error('Dynamic requires are not currently supported by rollup-plugin-commonjs');
+}
 
 function createCommonjsModule(fn, module) {
 	return module = { exports: {} }, fn(module, module.exports), module.exports;
@@ -2654,6 +2659,578 @@ function lower(c) {
   return c | 0x20;
 }
 
+// Unique ID creation requires a high quality random # generator.  In node.js
+// this is pretty straight-forward - we use the crypto API.
+
+
+
+var rng = function nodeRNG() {
+  return crypto.randomBytes(16);
+};
+
+/**
+ * Convert array of 16 byte values to UUID string format of the form:
+ * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+ */
+var byteToHex = [];
+for (var i = 0; i < 256; ++i) {
+  byteToHex[i] = (i + 0x100).toString(16).substr(1);
+}
+
+function bytesToUuid(buf, offset) {
+  var i = offset || 0;
+  var bth = byteToHex;
+  // join used to fix memory issue caused by concatenation: https://bugs.chromium.org/p/v8/issues/detail?id=3175#c4
+  return ([bth[buf[i++]], bth[buf[i++]], 
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]], '-',
+	bth[buf[i++]], bth[buf[i++]],
+	bth[buf[i++]], bth[buf[i++]],
+	bth[buf[i++]], bth[buf[i++]]]).join('');
+}
+
+var bytesToUuid_1 = bytesToUuid;
+
+// **`v1()` - Generate time-based UUID**
+//
+// Inspired by https://github.com/LiosK/UUID.js
+// and http://docs.python.org/library/uuid.html
+
+var _nodeId;
+var _clockseq;
+
+// Previous uuid creation time
+var _lastMSecs = 0;
+var _lastNSecs = 0;
+
+// See https://github.com/broofa/node-uuid for API details
+function v1(options, buf, offset) {
+  var i = buf && offset || 0;
+  var b = buf || [];
+
+  options = options || {};
+  var node = options.node || _nodeId;
+  var clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq;
+
+  // node and clockseq need to be initialized to random values if they're not
+  // specified.  We do this lazily to minimize issues related to insufficient
+  // system entropy.  See #189
+  if (node == null || clockseq == null) {
+    var seedBytes = rng();
+    if (node == null) {
+      // Per 4.5, create and 48-bit node id, (47 random bits + multicast bit = 1)
+      node = _nodeId = [
+        seedBytes[0] | 0x01,
+        seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]
+      ];
+    }
+    if (clockseq == null) {
+      // Per 4.2.2, randomize (14 bit) clockseq
+      clockseq = _clockseq = (seedBytes[6] << 8 | seedBytes[7]) & 0x3fff;
+    }
+  }
+
+  // UUID timestamps are 100 nano-second units since the Gregorian epoch,
+  // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
+  // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
+  // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
+  var msecs = options.msecs !== undefined ? options.msecs : new Date().getTime();
+
+  // Per 4.2.1.2, use count of uuid's generated during the current clock
+  // cycle to simulate higher resolution clock
+  var nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1;
+
+  // Time since last uuid creation (in msecs)
+  var dt = (msecs - _lastMSecs) + (nsecs - _lastNSecs)/10000;
+
+  // Per 4.2.1.2, Bump clockseq on clock regression
+  if (dt < 0 && options.clockseq === undefined) {
+    clockseq = clockseq + 1 & 0x3fff;
+  }
+
+  // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
+  // time interval
+  if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === undefined) {
+    nsecs = 0;
+  }
+
+  // Per 4.2.1.2 Throw error if too many uuids are requested
+  if (nsecs >= 10000) {
+    throw new Error('uuid.v1(): Can\'t create more than 10M uuids/sec');
+  }
+
+  _lastMSecs = msecs;
+  _lastNSecs = nsecs;
+  _clockseq = clockseq;
+
+  // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
+  msecs += 12219292800000;
+
+  // `time_low`
+  var tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
+  b[i++] = tl >>> 24 & 0xff;
+  b[i++] = tl >>> 16 & 0xff;
+  b[i++] = tl >>> 8 & 0xff;
+  b[i++] = tl & 0xff;
+
+  // `time_mid`
+  var tmh = (msecs / 0x100000000 * 10000) & 0xfffffff;
+  b[i++] = tmh >>> 8 & 0xff;
+  b[i++] = tmh & 0xff;
+
+  // `time_high_and_version`
+  b[i++] = tmh >>> 24 & 0xf | 0x10; // include version
+  b[i++] = tmh >>> 16 & 0xff;
+
+  // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
+  b[i++] = clockseq >>> 8 | 0x80;
+
+  // `clock_seq_low`
+  b[i++] = clockseq & 0xff;
+
+  // `node`
+  for (var n = 0; n < 6; ++n) {
+    b[i + n] = node[n];
+  }
+
+  return buf ? buf : bytesToUuid_1(b);
+}
+
+var v1_1 = v1;
+
+function v4(options, buf, offset) {
+  var i = buf && offset || 0;
+
+  if (typeof(options) == 'string') {
+    buf = options === 'binary' ? new Array(16) : null;
+    options = null;
+  }
+  options = options || {};
+
+  var rnds = options.random || (options.rng || rng)();
+
+  // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+  rnds[6] = (rnds[6] & 0x0f) | 0x40;
+  rnds[8] = (rnds[8] & 0x3f) | 0x80;
+
+  // Copy bytes to buffer, if provided
+  if (buf) {
+    for (var ii = 0; ii < 16; ++ii) {
+      buf[i + ii] = rnds[ii];
+    }
+  }
+
+  return buf || bytesToUuid_1(rnds);
+}
+
+var v4_1 = v4;
+
+var uuid = v4_1;
+uuid.v1 = v1_1;
+uuid.v4 = v4_1;
+
+var uuid_1 = uuid;
+
+const Domain = domain.Domain;
+
+
+const scope = Symbol('nodestream internal');
+
+/**
+ * Pipeline - a set of ordered transforms
+ */
+class Pipeline {
+
+  /**
+   * Create a new pipeline
+   *
+   * You should not create a pipeline yourself - let the Nodestream class do it for you via the
+   * [`.pipeline()`]{@link Nodestream#pipeline} method.
+   *
+   * @param     {Object}    options             Options for the pipeline
+   * @param     {Object}    options.adapter     The adapter to use
+   * @param     {Map}       options.transforms  The registered transforms which can be `.use()`d
+   */
+  constructor(options) {
+    options = options || {};
+
+    if (!options.adapter) {
+      throw new Error('Pipeline requires a configured adapter to operate with')
+    }
+
+    this[scope] = {
+      adapter: options.adapter,
+      transforms: options.transforms || new Map(),
+      middleware: [],
+    };
+  }
+
+  /**
+   * Use the given transform plugin in this pipeline
+   *
+   * @param     {String}    transform     The transform's `identity`
+   * @param     {Object?}   options       Options to be passed to the transform when a file is about
+   *                                      to be processed
+   * @return    {this}
+   */
+  use(transform, options) {
+    const transformer = this[scope].transforms.get(transform);
+
+    if (!transformer) {
+      throw new ReferenceError(`Transform ${transform} is not registered`)
+    }
+
+    this[scope].middleware.push({ Transformer: transformer, options });
+
+    return this
+  }
+
+  /**
+   * Upload a file to the remote storage
+   *
+   * @param     {stream.Readable}   file                A readable stream representing the file to
+   *                                                    be uploaded
+   * @param     {Object?}           options             Options for the upload
+   * @param     {String?}           options.directory   Directory to which the file should be
+   *                                                    uploaded
+   * @param     {String?}           options.name        Filename to upload the file to. If you do
+   *                                                    not provide a name, a random UUIDv4 string
+   *                                                    will be generated for you.
+   * @return    {Promise}
+   */
+  upload(file, options) {
+    if (!(file instanceof stream.Readable)) {
+      throw new TypeError('Only readable streams can be uploaded')
+    }
+
+    return new Promise((resolve, reject) => {
+      const domain$$1 = new Domain();
+
+      domain$$1.once('error', reject);
+      domain$$1.enter();
+      // file was created before we created our domain, so we must add it manually
+      domain$$1.add(file);
+
+      // Normalise options
+      options = options || {};
+
+      const adapter = this[scope].adapter;
+      const location = path.posix.join(options.directory || '', options.name || uuid_1.v4());
+      // Custom upload options for this adapter
+      const adapterOpts = options[adapter.constructor.identity] || {};
+      const destination = adapter.createWriteStream(location, adapterOpts);
+      const result = {
+        location,
+        transforms: this[scope].middleware.map(transform => transform.Transformer.identity),
+        adapter: adapter.constructor.identity,
+      };
+      const transforms = [];
+
+      // Apply upload transforms
+      file = this[scope].middleware.reduce(
+        (upstream, transform) => {
+          const transformOpts = options[transform.Transformer.identity] || {};
+          const transformer = new transform.Transformer(transform.options);
+          const transformed = transformer.transform(upstream, transformOpts);
+
+          transforms.push(transformer);
+
+          return transformed
+        }, file);
+
+      file.pipe(destination);
+
+      destination.once('finish', () => {
+        for (const transformer of transforms) {
+          result[transformer.constructor.identity] = transformer.results();
+        }
+
+        return resolve(result)
+      });
+
+      domain$$1.exit();
+    })
+  }
+
+  /**
+   * Download a file from the remote storage
+   *
+   * @param     {String}            location      The location of the file on the remote storage to
+   *                                              download
+   * @param     {stream.Writable}  destination    The destination stream into which to send the data
+   * @param     {Object?}          options        Options for the download
+   * @return    {Promise}
+   */
+  download(location, destination, options) {
+    if (!location || typeof location !== 'string') {
+      throw new TypeError(`Location must be string, got: ${location} (${typeof location})`)
+    }
+
+    if (!(destination instanceof stream) || typeof destination.write !== 'function') {
+      throw new TypeError('Destination must be a writable stream')
+    }
+
+    return new Promise((resolve, reject) => {
+      const domain$$1 = new Domain();
+
+      domain$$1.once('error', reject);
+      domain$$1.enter();
+      // destination was created before we created our domain, so we must add it manually
+      domain$$1.add(destination);
+
+      // Normalise options
+      options = options || {};
+
+      const adapter = this[scope].adapter;
+      // Custom download options for this adapter
+      const adapterOpts = options[adapter.constructor.identity] || {};
+      const result = {
+        location,
+        transforms: this[scope].middleware.map(transform => transform.Transformer.identity),
+        adapter: adapter.constructor.identity,
+      };
+      const transforms = [];
+      // Apply download transforms and return the last returned stream
+      const source = this[scope].middleware.reduce(
+        (downstream, transform) => {
+          const transformOpts = options[transform.Transformer.identity] || {};
+          const transformer = new transform.Transformer(transform.options);
+          const transformed = transformer.transform(downstream, transformOpts);
+
+          transforms.push(transformer);
+
+          return transformed
+        }, adapter.createReadStream(location, adapterOpts));
+
+      source.pipe(destination);
+
+      destination.once('finish', () => {
+        for (const transformer of transforms) {
+          result[transformer.constructor.identity] = transformer.results();
+        }
+
+        return resolve(result)
+      });
+
+      domain$$1.exit();
+    })
+  }
+
+  /**
+   * Remove a file from the remote storage
+   *
+   * @param     {String}      location      The location of the file on the remote storage to remove
+   * @return    {Promise}
+   */
+  remove(location) {
+    if (!location || typeof location !== 'string') {
+      throw new TypeError(`Location must be string, got: ${location} (${typeof location})`)
+    }
+
+    return Promise.resolve(this[scope].adapter.remove(location))
+    .then(() => location)
+  }
+}
+
+var pipeline = Pipeline;
+
+/**
+ * Check if a module is installed
+ *
+ * @private
+ * @param     {String}    moduleName    The module name to check
+ * @return    {Boolean}
+ */
+var isInstalled = function isInstalled(moduleName) {
+  try {
+    // eslint-disable-next-line global-require
+    commonjsRequire.resolve(moduleName);
+
+    return true
+  } catch (err) {
+    return false
+  }
+};
+
+const scope$1 = Symbol('nodestream internal');
+
+/**
+ * The Nodestream class. Responsible for streaming your bytes up and down, relentlessly.
+ */
+class Nodestream {
+
+  /**
+   * Create a new instance
+   *
+   * Generally, you only need to create new instance for a specific storage destination.
+   *
+   * @param     {Object}        options             Options to use for this destination
+   * @param     {Class|String}  options.adapter     Storage adapter to use for this destination.
+   *                                                If string is given, `nodestream-{adapter}` will
+   *                                                be `require`d.
+   * @param     {Object}        options.config      Storage adapter-specific configuration
+   * @return    {Nodestream}
+   */
+  constructor(options) {
+    // Normalise...
+    options = options || {};
+    options = {
+      config: options.config || {},
+      adapter: options.adapter,
+    };
+
+    // Allow specifying adapters as strings and take care of requiring them
+    if (typeof options.adapter === 'string') {
+      const pkg = `nodestream-${options.adapter}`;
+
+      if (!isInstalled(pkg)) {
+        throw new Error(`Cannot find adapter package ${pkg} - did you \`npm install\` it?`)
+      }
+
+      // eslint-disable-next-line global-require
+      options.adapter = commonjsRequire(pkg);
+    }
+
+    // If the adapter has been provided explicitly, make sure it's a constructor function/class
+    if (typeof options.adapter !== 'function') {
+      throw new TypeError('You must provide a valid Nodestream adapter')
+    }
+
+    if (typeof options.adapter.identity !== 'string') {
+      throw new ReferenceError(`Adapter ${options.adapter.name} does not declare its identity`)
+    }
+
+    this[scope$1] = {
+      options,
+      // Instantiate the adapter
+      // eslint-disable-next-line new-cap
+      adapter: new options.adapter(options.config),
+      transforms: new Map(),
+    };
+  }
+
+  /**
+   * Create a new pipeline from this Nodestream instance
+   *
+   * @return    {Pipeline}
+   */
+  pipeline() {
+    return new pipeline({
+      adapter: this[scope$1].adapter,
+      transforms: this[scope$1].transforms,
+    })
+  }
+
+  /**
+   * Upload a file to the remote storage
+   *
+   * This is a convenience method to be used in situations where you do not need a pipeline and just
+   * want a file to be uploaded to the remote storage.
+   *
+   * @param     {stream.Readable}   file                A readable stream representing the file to
+   *                                                    be uploaded
+   * @param     {Object?}           options             Options for the upload
+   * @param     {String?}           options.directory   Directory to which the file should be
+   *                                                    uploaded
+   * @param     {String?}           options.name        Filename to upload the file to. If you do
+   *                                                    not provide a name, a random UUIDv4 string
+   *                                                    will be generated for you.
+   * @return    {Promise}
+   */
+  upload(file, options) {
+    return this.pipeline().upload(file, options)
+  }
+
+  /**
+   * Download a file from the remote storage
+   *
+   * This is a convenience method to be used in situations where you do not need a pipeline and just
+   * want a file to be downloaded from the remote storage.
+   *
+   * @param     {String}            location      The location of the file on the remote storage to
+   *                                              download
+   * @param     {stream.Writable}  destination    The destination stream into which to send the data
+   * @param     {Object?}          options        Options for the download
+   * @return    {Promise}
+   */
+  download(location, destination, options) {
+    return this.pipeline().download(location, destination, options)
+  }
+
+  /**
+   * Remove a file from the remote storage
+   *
+   * This is a convenience method to be used in situations where you do not need a pipeline and just
+   * want a file to be removed from the remote storage.
+   *
+   * @param     {String}      location      The location of the file on the remote storage to remove
+   * @return    {Promise}
+   */
+  remove(location) {
+    return this.pipeline().remove(location)
+  }
+
+  /**
+   * Register a transform
+   *
+   * You must use this method to register a transform before you can [`.use()`]{@link Pipeline#use}
+   * it in a pipeline.
+   *
+   * @param     {Class|String}  transformer   A class/constructor function to be used for data
+   *                                          transformations. A new instance of this class will be
+   *                                          created for each file being uploaded/downloaded. If a
+   *                                          string is given, `nodestream-transform-{transformer}`
+   *                                          will be `require`d.
+   * @return    {this}
+   */
+  registerTransform(transformer) {
+    // Allow specifying transformers as strings and take care of requiring them
+    if (typeof transformer === 'string') {
+      const pkg = `nodestream-transform-${transformer}`;
+
+      if (!isInstalled(pkg)) {
+        throw new Error(`Cannot find transform package ${pkg} - did you \`npm install\` it?`)
+      }
+
+      // eslint-disable-next-line global-require
+      transformer = commonjsRequire(pkg);
+    }
+
+    if (typeof transformer !== 'function') {
+      throw new TypeError('Transformer must be a class or constructor function')
+    }
+
+    if (typeof transformer.identity !== 'string') {
+      throw new ReferenceError(`Transformer ${transformer.name} does not declare its identity`)
+    }
+
+    this[scope$1].transforms.set(transformer.identity, transformer);
+
+    return this
+  }
+}
+
+var nodestream = Nodestream;
+
+class File {
+    constructor(config) {
+        this.stream = new nodestream(config);
+    }
+
+    getStream()
+    {
+        return this.stream;
+    }
+
+    upload(options)
+    {
+        return this.stream.upload(options);
+    }
+
+}
+
 class Jerusalem {
     constructor(options) {
         this.files = [];
@@ -2664,8 +3241,16 @@ class Jerusalem {
         return this.files;
     }
 
-    init() {
+    AddFile() {
+           this.files.push(new File(this.options));  
+    }
 
+
+    handle(form)
+    {
+        form.on('part',(part)=>{
+             
+            if(part.file);        });
     }
 }
 
