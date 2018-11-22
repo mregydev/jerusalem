@@ -1,31 +1,27 @@
-import multiparty from 'multiparty';
 
-import file from './file';
+import Jerusalem from './Jerusalem'
 
-class Jerusalem {
-    constructor(options) {
-        this.files = [];
-        this.options = options;
-    }
+import multiparty from 'multiparty'
 
-    get Files() {
-        return this.files;
-    }
+class Main {
+    constructor(config) {
 
-    AddFile() {
-           this.files.push(new file(this.options));  
+        config.uploadOptions = config.uploadOptions || {}
+        config.adapteroptions = config.adapteroptions || {}
+        this.core = new Jerusalem(config)
+        this.form = new multiparty.Form();
     }
 
 
-    handle(form)
-    {
-        form.on('part',(part)=>{
-             
-            if(part.file){
- 
-            };
-        });
+    handle(req, res, next) {
+        this.core.handle(this.form)
+        this.form.parse(req)
+
+        this.form.on('close', () => {
+            req.uploader = this.core
+            next()
+        })
     }
 }
 
-export default Jerusalem;
+export default Main

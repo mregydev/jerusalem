@@ -9,7 +9,7 @@ var fs = _interopDefault(require('fs'));
 var os = _interopDefault(require('os'));
 var string_decoder = _interopDefault(require('string_decoder'));
 var path = _interopDefault(require('path'));
-var stream = _interopDefault(require('stream'));
+var stream$1 = _interopDefault(require('stream'));
 var crypto = _interopDefault(require('crypto'));
 var domain = _interopDefault(require('domain'));
 
@@ -1587,9 +1587,9 @@ function pendGo(self, fn) {
   fn(pendHold(self));
 }
 
-var Readable = stream.Readable;
-var Writable = stream.Writable;
-var PassThrough = stream.PassThrough;
+var Readable = stream$1.Readable;
+var Writable = stream$1.Writable;
+var PassThrough = stream$1.PassThrough;
 
 var EventEmitter = events.EventEmitter;
 
@@ -1918,11 +1918,13 @@ var CONTENT_TYPE_PARAM_RE = /;\s*([^=]+)=(?:"([^"]+)"|([^;]+))/gi;
 var FILE_EXT_RE = /(\.[_\-a-zA-Z0-9]{0,16})[\S\s]*/;
 var LAST_BOUNDARY_SUFFIX_LEN = 4; // --\r\n
 
-util.inherits(Form, stream.Writable);
+var Form_1 = Form;
+
+util.inherits(Form, stream$1.Writable);
 function Form(options) {
   var opts = options || {};
   var self = this;
-  stream.Writable.call(self);
+  stream$1.Writable.call(self);
 
   self.error = null;
 
@@ -2376,7 +2378,7 @@ Form.prototype.onParseHeadersEnd = function(offset) {
     return httpErrors(413, 'maxFields ' + self.maxFields + ' exceeded.');
   }
 
-  self.destStream = new stream.PassThrough();
+  self.destStream = new stream$1.PassThrough();
   self.destStream.on('drain', function() {
     flushWriteCbs(self);
   });
@@ -2663,6 +2665,10 @@ function lower(c) {
   return c | 0x20;
 }
 
+var multiparty = {
+	Form: Form_1
+};
+
 // Unique ID creation requires a high quality random # generator.  In node.js
 // this is pretty straight-forward - we use the crypto API.
 
@@ -2905,7 +2911,7 @@ class Pipeline {
    * @return    {Promise}
    */
   upload(file, options) {
-    if (!(file instanceof stream.Readable)) {
+    if (!(file instanceof stream$1.Readable)) {
       throw new TypeError('Only readable streams can be uploaded')
     }
 
@@ -2972,7 +2978,7 @@ class Pipeline {
       throw new TypeError(`Location must be string, got: ${location} (${typeof location})`)
     }
 
-    if (!(destination instanceof stream) || typeof destination.write !== 'function') {
+    if (!(destination instanceof stream$1) || typeof destination.write !== 'function') {
       throw new TypeError('Destination must be a writable stream')
     }
 
@@ -3219,43 +3225,87 @@ class Nodestream {
 var nodestream = Nodestream;
 
 class File {
-    constructor(config) {
-        this.stream = new nodestream(config);
+    constructor(stream, config) {
+
+        if (config.adapteroptions) {
+            this.uploader = new nodestream(config.adapteroptions);
+            this.config = config;
+            this.stream = stream;
+        }
     }
 
-    getStream()
-    {
-        return this.stream;
+    get Stream() {
+        return this.stream
     }
 
-    upload(options)
-    {
-        return this.stream.upload(options);
+    set Stream(value) {
+        this.stream = value;
     }
 
+    changeAdapter(config) {
+        if (config.adapteroptions) {
+            this.uploader = new nodestream(this.config.adapteroptions);
+            this.config = config;
+            this.stream = stream;
+        }
+    }
+
+    upload() {
+        this.config.uploadOptions.filename = this.config.uploadOptions.filename || this.stream.filename;
+        return this.uploader.upload(this.stream, this.config.uploadOptions);
+    }
 }
 
 class Jerusalem {
-    constructor(options) {
+    constructor(config) {
         this.files = [];
-        this.options = options;
+        this.config=config;
     }
 
     get Files() {
-        return this.files;
+        return this.files
     }
 
-    AddFile() {
-           this.files.push(new File(this.options));  
+    AddFile(stream) {
+        this.files.push(new File(stream,this.config));
     }
 
 
-    handle(form)
-    {
-        form.on('part',(part)=>{
-             
-            if(part.file);        });
+    handle(form) {
+        form.on('part', (part) => {
+
+            if (part.filename) {
+                this.files.push(new File(part, this.config));
+
+                if (this.config.uploadAll) {
+                    this.files[this.files.length - 1].upload();
+                }
+            }
+
+            part.resume();
+        });
     }
 }
 
-module.exports = Jerusalem;
+class Main {
+    constructor(config) {
+
+        config.uploadOptions = config.uploadOptions || {};
+        config.adapteroptions = config.adapteroptions || {};
+        this.core = new Jerusalem(config);
+        this.form = new multiparty.Form();
+    }
+
+
+    handle(req, res, next) {
+        this.core.handle(this.form);
+        this.form.parse(req);
+
+        this.form.on('close', () => {
+            req.uploader = this.core;
+            next();
+        });
+    }
+}
+
+module.exports = Main;
