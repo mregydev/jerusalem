@@ -3,21 +3,18 @@
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var buffer = _interopDefault(require('buffer'));
-var util = _interopDefault(require('util'));
-var events = _interopDefault(require('events'));
-var fs = _interopDefault(require('fs'));
 var os = _interopDefault(require('os'));
-var string_decoder = _interopDefault(require('string_decoder'));
 var path = _interopDefault(require('path'));
-var stream$1 = _interopDefault(require('stream'));
 var crypto = _interopDefault(require('crypto'));
 var domain = _interopDefault(require('domain'));
+var string_decoder = _interopDefault(require('string_decoder'));
+var fs = _interopDefault(require('fs'));
+var util = _interopDefault(require('util'));
+var stream = _interopDefault(require('stream'));
+var events = require('events');
+var events__default = _interopDefault(events);
 
 var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
-
-function commonjsRequire () {
-	throw new Error('Dynamic requires are not currently supported by rollup-plugin-commonjs');
-}
 
 function createCommonjsModule(fn, module) {
 	return module = { exports: {} }, fn(module, module.exports), module.exports;
@@ -157,7 +154,7 @@ var compat = createCommonjsModule(function (module) {
  * @private
  */
 
-var EventEmitter = events.EventEmitter;
+var EventEmitter = events__default.EventEmitter;
 
 /**
  * Module exports.
@@ -1587,11 +1584,11 @@ function pendGo(self, fn) {
   fn(pendHold(self));
 }
 
-var Readable = stream$1.Readable;
-var Writable = stream$1.Writable;
-var PassThrough = stream$1.PassThrough;
+var Readable = stream.Readable;
+var Writable = stream.Writable;
+var PassThrough = stream.PassThrough;
 
-var EventEmitter = events.EventEmitter;
+var EventEmitter = events__default.EventEmitter;
 
 var createFromBuffer_1 = createFromBuffer;
 var createFromFd_1 = createFromFd;
@@ -1920,11 +1917,11 @@ var LAST_BOUNDARY_SUFFIX_LEN = 4; // --\r\n
 
 var Form_1 = Form;
 
-util.inherits(Form, stream$1.Writable);
+util.inherits(Form, stream.Writable);
 function Form(options) {
   var opts = options || {};
   var self = this;
-  stream$1.Writable.call(self);
+  stream.Writable.call(self);
 
   self.error = null;
 
@@ -2378,7 +2375,7 @@ Form.prototype.onParseHeadersEnd = function(offset) {
     return httpErrors(413, 'maxFields ' + self.maxFields + ' exceeded.');
   }
 
-  self.destStream = new stream$1.PassThrough();
+  self.destStream = new stream.PassThrough();
   self.destStream.on('drain', function() {
     flushWriteCbs(self);
   });
@@ -2911,7 +2908,7 @@ class Pipeline {
    * @return    {Promise}
    */
   upload(file, options) {
-    if (!(file instanceof stream$1.Readable)) {
+    if (!(file instanceof stream.Readable)) {
       throw new TypeError('Only readable streams can be uploaded')
     }
 
@@ -2978,7 +2975,7 @@ class Pipeline {
       throw new TypeError(`Location must be string, got: ${location} (${typeof location})`)
     }
 
-    if (!(destination instanceof stream$1) || typeof destination.write !== 'function') {
+    if (!(destination instanceof stream) || typeof destination.write !== 'function') {
       throw new TypeError('Destination must be a writable stream')
     }
 
@@ -3047,6 +3044,14 @@ class Pipeline {
 var pipeline = Pipeline;
 
 /**
+ * Nodestream
+ *
+ * @author      Robert Rossmann <robert.rossmann@me.com>
+ * @copyright   2016 Robert Rossmann
+ * @license     BSD-3-Clause
+ */
+
+/**
  * Check if a module is installed
  *
  * @private
@@ -3056,7 +3061,7 @@ var pipeline = Pipeline;
 var isInstalled = function isInstalled(moduleName) {
   try {
     // eslint-disable-next-line global-require
-    commonjsRequire.resolve(moduleName);
+   // require.resolve(moduleName)
 
     return true
   } catch (err) {
@@ -3100,7 +3105,7 @@ class Nodestream {
       }
 
       // eslint-disable-next-line global-require
-      options.adapter = commonjsRequire(pkg);
+      options.adapter = require(pkg);
     }
 
     // If the adapter has been provided explicitly, make sure it's a constructor function/class
@@ -3205,7 +3210,7 @@ class Nodestream {
       }
 
       // eslint-disable-next-line global-require
-      transformer = commonjsRequire(pkg);
+      transformer = require(pkg);
     }
 
     if (typeof transformer !== 'function') {
@@ -3224,14 +3229,456 @@ class Nodestream {
 
 var nodestream = Nodestream;
 
+var StringDecoder$1 = string_decoder.StringDecoder;
+
+function MemoryReadableStream(data, options) {
+    if (!(this instanceof MemoryReadableStream))
+        return new MemoryReadableStream(data, options);
+    MemoryReadableStream.super_.call(this, options);
+    this.init(data, options);
+}
+util.inherits(MemoryReadableStream, stream.Readable);
+
+
+function MemoryWritableStream(data, options) {
+    if (!(this instanceof MemoryWritableStream))
+        return new MemoryWritableStream(data, options);
+    MemoryWritableStream.super_.call(this, options);
+    this.init(data, options);
+}
+util.inherits(MemoryWritableStream, stream.Writable);
+
+
+function MemoryDuplexStream(data, options) {
+    if (!(this instanceof MemoryDuplexStream))
+        return new MemoryDuplexStream(data, options);
+    MemoryDuplexStream.super_.call(this, options);
+    this.init(data, options);
+}
+util.inherits(MemoryDuplexStream, stream.Duplex);
+
+
+MemoryReadableStream.prototype.init =
+MemoryWritableStream.prototype.init =
+MemoryDuplexStream.prototype.init = function init (data, options) {
+    var self = this;
+    this.queue = [];
+
+    if (data) {
+        if (!Array.isArray(data)) {
+            data = [ data ];
+        }
+
+        data.forEach(function (chunk) {
+            if (!(chunk instanceof Buffer)) {
+                chunk = new Buffer(chunk);
+            }
+            self.queue.push(chunk);
+        });
+
+    }
+    
+    options = options || {};
+    
+    this.maxbufsize = options.hasOwnProperty('maxbufsize') ? options.maxbufsize
+            : null;
+    this.bufoverflow = options.hasOwnProperty('bufoverflow') ? options.bufoverflow
+            : null;
+    this.frequence = options.hasOwnProperty('frequence') ? options.frequence
+            : null;
+};
+
+function MemoryStream (data, options) {
+    if (!(this instanceof MemoryStream))
+        return new MemoryStream(data, options);
+    
+    options = options || {};
+    
+    var readable = options.hasOwnProperty('readable') ? options.readable : true,
+        writable = options.hasOwnProperty('writable') ? options.writable : true;
+    
+    if (readable && writable) {
+        return new MemoryDuplexStream(data, options);
+    } else if (readable) {
+        return new MemoryReadableStream(data, options);
+    } else if (writable) {
+        return new MemoryWritableStream(data, options);
+    } else {
+        throw new Error("Unknown stream type  Readable, Writable or Duplex ");
+    }
+}
+
+
+MemoryStream.createReadStream = function (data, options) {
+    options = options || {};
+    options.readable = true;
+    options.writable = false;
+
+    return new MemoryStream(data, options);
+};
+
+
+MemoryStream.createWriteStream = function (data, options) {
+    options = options || {};
+    options.readable = false;
+    options.writable = true;
+
+    return new MemoryStream(data, options);
+};
+
+
+MemoryReadableStream.prototype._read =
+MemoryDuplexStream.prototype._read = function _read (n) {
+    var self = this,
+        frequence = self.frequence || 0,
+        wait_data = this instanceof stream.Duplex && ! this._writableState.finished ? true : false;
+    if ( ! this.queue.length && ! wait_data) {
+        this.push(null);// finish stream
+    } else if (this.queue.length) {
+        setTimeout(function () {
+            if (self.queue.length) {
+                var chunk = self.queue.shift();
+                if (chunk && ! self._readableState.ended) {
+                    if ( ! self.push(chunk) ) {
+                        self.queue.unshift(chunk);
+                    }
+                }
+            }
+        }, frequence);
+    }
+};
+
+
+MemoryWritableStream.prototype._write =
+MemoryDuplexStream.prototype._write = function _write (chunk, encoding, cb) {
+    var decoder = null;
+    try {
+        decoder = this.decodeStrings && encoding ? new StringDecoder$1(encoding) : null;
+    } catch (err){
+        return cb(err);
+    }
+    
+    var decoded_chunk = decoder ? decoder.write(chunk) : chunk,
+        queue_size = this._getQueueSize(),
+        chunk_size = decoded_chunk.length;
+    
+    if (this.maxbufsize && (queue_size + chunk_size) > this.maxbufsize ) {
+        if (this.bufoverflow) {
+            return cb("Buffer overflowed (" + this.bufoverflow + "/" + queue_size + ")");
+        } else {
+            return cb();
+        }
+    }
+    
+    if (this instanceof stream.Duplex) {
+        while (this.queue.length) {
+            this.push(this.queue.shift());
+        }
+        this.push(decoded_chunk);
+    } else {
+        this.queue.push(decoded_chunk);
+    }
+    cb();
+};
+
+
+MemoryDuplexStream.prototype.end = function (chunk, encoding, cb) {
+    var self = this;
+    return MemoryDuplexStream.super_.prototype.end.call(this, chunk, encoding, function () {
+        self.push(null);//finish readble stream too
+        if (cb) cb();
+    });
+};
+
+
+MemoryReadableStream.prototype._getQueueSize =  
+MemoryWritableStream.prototype._getQueueSize = 
+MemoryDuplexStream.prototype._getQueueSize = function () {
+    var queuesize = 0, i;
+    for (i = 0; i < this.queue.length; i++) {
+        queuesize += Array.isArray(this.queue[i]) ? this.queue[i][0].length
+                : this.queue[i].length;
+    }
+    return queuesize;
+};
+
+
+MemoryWritableStream.prototype.toString = 
+MemoryDuplexStream.prototype.toString = 
+MemoryReadableStream.prototype.toString = 
+MemoryWritableStream.prototype.getAll = 
+MemoryDuplexStream.prototype.getAll = 
+MemoryReadableStream.prototype.getAll = function () {
+    var ret = '';
+    this.queue.forEach(function (data) {
+        ret += data;
+    });
+    return ret;
+};
+
+
+MemoryWritableStream.prototype.toBuffer = 
+MemoryDuplexStream.prototype.toBuffer = 
+MemoryReadableStream.prototype.toBuffer = function () {
+    var buffer$$1 = new Buffer(this._getQueueSize()),
+        currentOffset = 0;
+
+    this.queue.forEach(function (data) {
+        var data_buffer = data instanceof Buffer ? data : new Buffer(data);
+        data_buffer.copy(buffer$$1, currentOffset);
+        currentOffset += data.length;
+    });
+    return buffer$$1;
+};
+
+
+var memorystream = MemoryStream;
+
+var constants = {
+  DEFAULT_INITIAL_SIZE: (8 * 1024),
+  DEFAULT_INCREMENT_AMOUNT: (8 * 1024),
+  DEFAULT_FREQUENCY: 1,
+  DEFAULT_CHUNK_SIZE: 1024
+};
+
+var readable_streambuffer = createCommonjsModule(function (module) {
+
+
+
+
+
+var ReadableStreamBuffer = module.exports = function(opts) {
+  var that = this;
+  opts = opts || {};
+
+  stream.Readable.call(this, opts);
+
+  this.stopped = false;
+
+  var frequency = opts.hasOwnProperty('frequency') ? opts.frequency : constants.DEFAULT_FREQUENCY;
+  var chunkSize = opts.chunkSize || constants.DEFAULT_CHUNK_SIZE;
+  var initialSize = opts.initialSize || constants.DEFAULT_INITIAL_SIZE;
+  var incrementAmount = opts.incrementAmount || constants.DEFAULT_INCREMENT_AMOUNT;
+
+  var size = 0;
+  var buffer$$1 = new Buffer(initialSize);
+  var allowPush = false;
+
+  var sendData = function() {
+    var amount = Math.min(chunkSize, size);
+    var sendMore = false;
+
+    if (amount > 0) {
+      var chunk = null;
+      chunk = new Buffer(amount);
+      buffer$$1.copy(chunk, 0, 0, amount);
+
+      sendMore = that.push(chunk) !== false;
+      allowPush = sendMore;
+
+      buffer$$1.copy(buffer$$1, 0, amount, size);
+      size -= amount;
+    }
+
+    if(size === 0 && that.stopped) {
+      that.push(null);
+    }
+
+    if (sendMore) {
+      sendData.timeout = setTimeout(sendData, frequency);
+    }
+    else {
+      sendData.timeout = null;
+    }
+  };
+
+  this.stop = function() {
+    if (this.stopped) {
+      throw new Error('stop() called on already stopped ReadableStreamBuffer');
+    }
+    this.stopped = true;
+
+    if (size === 0) {
+      this.push(null);
+    }
+  };
+
+  this.size = function() {
+    return size;
+  };
+
+  this.maxSize = function() {
+    return buffer$$1.length;
+  };
+
+  var increaseBufferIfNecessary = function(incomingDataSize) {
+    if((buffer$$1.length - size) < incomingDataSize) {
+      var factor = Math.ceil((incomingDataSize - (buffer$$1.length - size)) / incrementAmount);
+
+      var newBuffer = new Buffer(buffer$$1.length + (incrementAmount * factor));
+      buffer$$1.copy(newBuffer, 0, 0, size);
+      buffer$$1 = newBuffer;
+    }
+  };
+
+  var kickSendDataTask = function () {
+    if (!sendData.timeout && allowPush) {
+      sendData.timeout = setTimeout(sendData, frequency);
+    }
+  };
+
+  this.put = function(data, encoding) {
+    if (that.stopped) {
+      throw new Error('Tried to write data to a stopped ReadableStreamBuffer');
+    }
+
+    if(Buffer.isBuffer(data)) {
+      increaseBufferIfNecessary(data.length);
+      data.copy(buffer$$1, size, 0);
+      size += data.length;
+    }
+    else {
+      data = data + '';
+      var dataSizeInBytes = Buffer.byteLength(data);
+      increaseBufferIfNecessary(dataSizeInBytes);
+      buffer$$1.write(data, size, encoding || 'utf8');
+      size += dataSizeInBytes;
+    }
+
+    kickSendDataTask();
+  };
+
+  this._read = function() {
+    allowPush = true;
+    kickSendDataTask();
+  };
+};
+
+util.inherits(ReadableStreamBuffer, stream.Readable);
+});
+
+var writable_streambuffer = createCommonjsModule(function (module) {
+
+
+
+
+
+var WritableStreamBuffer = module.exports = function(opts) {
+  opts = opts || {};
+  opts.decodeStrings = true;
+
+  stream.Writable.call(this, opts);
+
+  var initialSize = opts.initialSize || constants.DEFAULT_INITIAL_SIZE;
+  var incrementAmount = opts.incrementAmount || constants.DEFAULT_INCREMENT_AMOUNT;
+
+  var buffer$$1 = new Buffer(initialSize);
+  var size = 0;
+
+  this.size = function() {
+    return size;
+  };
+
+  this.maxSize = function() {
+    return buffer$$1.length;
+  };
+
+  this.getContents = function(length) {
+    if(!size) return false;
+
+    var data = new Buffer(Math.min(length || size, size));
+    buffer$$1.copy(data, 0, 0, data.length);
+
+    if(data.length < size)
+      buffer$$1.copy(buffer$$1, 0, data.length);
+
+    size -= data.length;
+
+    return data;
+  };
+
+  this.getContentsAsString = function(encoding, length) {
+    if(!size) return false;
+
+    var data = buffer$$1.toString(encoding || 'utf8', 0, Math.min(length || size, size));
+    var dataLength = Buffer.byteLength(data);
+
+    if(dataLength < size)
+      buffer$$1.copy(buffer$$1, 0, dataLength);
+
+    size -= dataLength;
+    return data;
+  };
+
+  var increaseBufferIfNecessary = function(incomingDataSize) {
+    if((buffer$$1.length - size) < incomingDataSize) {
+      var factor = Math.ceil((incomingDataSize - (buffer$$1.length - size)) / incrementAmount);
+
+      var newBuffer = new Buffer(buffer$$1.length + (incrementAmount * factor));
+      buffer$$1.copy(newBuffer, 0, 0, size);
+      buffer$$1 = newBuffer;
+    }
+  };
+
+  this._write = function(chunk, encoding, callback) {
+    increaseBufferIfNecessary(chunk.length);
+    chunk.copy(buffer$$1, size, 0);
+    size += chunk.length;
+    callback();
+  };
+};
+
+util.inherits(WritableStreamBuffer, stream.Writable);
+});
+
+var streambuffer = constants;
+var ReadableStreamBuffer = readable_streambuffer;
+var WritableStreamBuffer = writable_streambuffer;
+streambuffer.ReadableStreamBuffer = ReadableStreamBuffer;
+streambuffer.WritableStreamBuffer = WritableStreamBuffer;
+
 class File {
-    constructor(stream, config) {
+    constructor(config) {
 
         if (config.adapteroptions) {
             this.uploader = new nodestream(config.adapteroptions);
+
             this.config = config;
-            this.stream = stream;
+
+            //set upload option to emty object in case not set
+            this.config.uploadOptions=this.config.uploadOptions||{};
+
         }
+    }
+
+
+    fetchFIleFromPart(part) {
+        return new Promise((resolve, reject) => {
+            if (part) {
+                //Copy part to pass through stream
+                this.stream = new memorystream();
+
+                this.stream.filename = this.config.uniquenames ? `${v1_1()}.${part.filename.match(/\w+/)}` : part.filename;
+
+                part.pipe(this.stream);
+
+                part.on('end', () => {resolve(true);});
+                part.on('error',()=>reject(false));
+            }
+        })
+    }
+
+
+    fetchFileFromStr(str, ext) {
+
+        this.stream = new streambuffer.ReadableStreamBuffer({
+            chunkSize: 2048
+        });
+
+        this.stream.put(str, 'base64');
+
+
+        this.stream.filename = `${v1_1()}.${ext}`;
     }
 
     get Stream() {
@@ -3244,68 +3691,170 @@ class File {
 
     changeAdapter(config) {
         if (config.adapteroptions) {
-            this.uploader = new nodestream(this.config.adapteroptions);
+            this.uploader = new nodestream(config.adapteroptions);
             this.config = config;
-            this.stream = stream;
         }
     }
 
     upload() {
-        this.config.uploadOptions.filename = this.config.uploadOptions.filename || this.stream.filename;
+        this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename;
         return this.uploader.upload(this.stream, this.config.uploadOptions);
     }
 }
 
-class Jerusalem {
+class Jerusalem extends events.EventEmitter {
     constructor(config) {
+        super();
         this.files = [];
-        this.config=config;
+        this.config = config;
     }
 
     get Files() {
         return this.files
     }
 
-    AddFile(stream) {
-        this.files.push(new File(stream,this.config));
+    AddFile(stream$$1) {
+        this.files.push(new file(stream$$1, this.config));
+    }
+
+    reset() {
+        this.files = [];
     }
 
 
-    handle(form) {
-        form.on('part', (part) => {
+    uploadAllFiles(resolve, reject) {
+        let numberUploaded = 0;
+        for (let file of this.files) {
+            file.upload().then(() => {
+                if (++numberUploaded == this.files.length) {
+                    resolve(true);
+                }
+            }).catch(msg => reject(msg));
+        }
+    }
 
-            if (part.filename) {
-                this.files.push(new File(part, this.config));
 
-                if (this.config.uploadAll) {
-                    this.files[this.files.length - 1].upload();
+    checkToUploadAllFiles() {
+        return new Promise((resolve, reject) => {
+            if (this.config.uploadAll) {
+                return this.uploadAllFiles()
+            }
+            else {
+                resolve(true);
+            }
+        })
+    }
+
+    handleBase64(req) {
+
+        return new Promise((resolve, reject) => {
+
+            if (req.body && req.body["base64files"]) {
+
+                console.log;
+                let base64param = req.body['base64param'];
+                for (let param of base64param) {
+
+                    if (param && param.fileStr && param.fileExt) {
+                        let file = new File(this.config);
+                        file.fetchFileFromStr(param.fileStr, param.fileExt);
+                        this.files.push(file);
+                        console.log("here");
+                    }
+                }
+                this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
+                    reject(`Problem in uploading files`);
+                });
+            }
+            else {
+                reject(`base64files paramters not found in json body`);
+            }
+        })
+
+    }
+
+    handleMultiPart(req) {
+
+        return new Promise((resolve, reject) => {
+            let form = new multiparty.Form();
+
+            form.on('close', () => {
+                this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
+                    reject(`Problem in uploading files`);
+                });
+            });
+
+            form.on('part', (part) => {
+
+                if (part.filename) {
+                    let file = new File(this.config);
+
+                    file.fetchFIleFromPart(part).then(res => {
+                        this.files.push(file);
+                        part.resume();
+                    }).catch(ex => () => reject(`Problem in uploading file ${part.filename}`));
+                }
+            });
+
+            form.on('error', (err) => reject(`Error parsing form ${err.stack}`));
+
+            form.parse(req);
+
+        })
+
+    }
+}
+
+var contentTypes = {
+    JSON:"application/json",
+    FORM:"multipart/form-data"
+};
+
+var index = (config) => {
+
+    return function (req, res, next) {
+
+        if (!config.adapteroptions) {
+
+            SetError(req, `config should contains adapter options`, next);
+        }
+        else {
+
+            req.uploader  = new Jerusalem(config);
+
+            let contentType = req.header('content-type');
+
+            if (!contentType) {
+                SetError(req,'No Content Type',next);
+            }
+            else {
+                
+                if (contentType.indexOf(contentTypes.JSON) > -1) {
+                    req.uploader.handleBase64(req).then(() => {
+                        next();
+                    }).catch((msg) => {
+                        SetError(req, msg, next);
+                    });
+                }
+                else if (contentType.indexOf(contentTypes.FORM) > -1) {
+                    req.uploader.handleMultiPart(req).then(() => {
+                        next();
+                    }).catch((msg) => {
+                        SetError(req, msg, next);
+                    });
                 }
             }
-
-            part.resume();
-        });
+        }
     }
+};
+
+
+function SetError(req, msg, next) {
+
+    req.uploader.hasError = true;
+    req.uploader.errorMsg = msg;
+    next();
+
 }
 
-class Main {
-    constructor(config) {
-
-        config.uploadOptions = config.uploadOptions || {};
-        config.adapteroptions = config.adapteroptions || {};
-        this.core = new Jerusalem(config);
-        this.form = new multiparty.Form();
-    }
-
-
-    handle(req, res, next) {
-        this.core.handle(this.form);
-        this.form.parse(req);
-
-        this.form.on('close', () => {
-            req.uploader = this.core;
-            next();
-        });
-    }
-}
-
-module.exports = Main;
+module.exports = index;

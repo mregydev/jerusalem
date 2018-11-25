@@ -1,27 +1,62 @@
 
 import Jerusalem from './Jerusalem'
+function isInstalled(modulename)
+{
+    return true
+}
+
+
 
 import multiparty from 'multiparty'
 
-class Main {
-    constructor(config) {
-
-        config.uploadOptions = config.uploadOptions || {}
-        config.adapteroptions = config.adapteroptions || {}
-        this.core = new Jerusalem(config)
-        this.form = new multiparty.Form();
-    }
+import contentTypes from './contentTypes'
 
 
-    handle(req, res, next) {
-        this.core.handle(this.form)
-        this.form.parse(req)
 
-        this.form.on('close', () => {
-            req.uploader = this.core
-            next()
-        })
+
+export default (config) => {
+
+    return function (req, res, next) {
+
+        if (!config.adapteroptions) {
+
+            SetError(req, `config should contains adapter options`, next)
+        }
+        else {
+
+            req.uploader  = new Jerusalem(config)
+
+            let contentType = req.header('content-type')
+
+            if (!contentType) {
+                SetError(req,'No Content Type',next)
+            }
+            else {
+                
+                if (contentType.indexOf(contentTypes.JSON) > -1) {
+                    req.uploader.handleBase64(req).then(() => {
+                        next()
+                    }).catch((msg) => {
+                        SetError(req, msg, next)
+                    })
+                }
+                else if (contentType.indexOf(contentTypes.FORM) > -1) {
+                    req.uploader.handleMultiPart(req).then(() => {
+                        next()
+                    }).catch((msg) => {
+                        SetError(req, msg, next)
+                    })
+                }
+            }
+        }
     }
 }
 
-export default Main
+
+function SetError(req, msg, next) {
+
+    req.uploader.hasError = true
+    req.uploader.errorMsg = msg
+    next()
+
+}

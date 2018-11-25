@@ -13,6 +13,6 @@ const isDebug = process.env.NODE_ENV == "debug";
 
 export default {
     plugins: [eslint({}), resolve(), commonjs({
-        include: 'node_modules/**'
+        include: 'node_modules/**', ignore: ["conditional-runtime-dependency"] 
     }),json({})]
 }

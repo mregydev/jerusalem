@@ -3056,7 +3056,7 @@ var pipeline = Pipeline;
 var isInstalled = function isInstalled(moduleName) {
   try {
     // eslint-disable-next-line global-require
-    require.resolve(moduleName);
+   // require.resolve(moduleName)
 
     return true
   } catch (err) {
