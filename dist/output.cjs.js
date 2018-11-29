@@ -3646,7 +3646,7 @@ class File {
             this.config = config;
 
             //set upload option to emty object in case not set
-            this.config.uploadOptions=this.config.uploadOptions||{};
+            this.config.uploadOptions = this.config.uploadOptions || {};
 
         }
     }
@@ -3662,8 +3662,9 @@ class File {
 
                 part.pipe(this.stream);
 
-                part.on('end', () => {resolve(true);});
-                part.on('error',()=>reject(false));
+                part.on('end', () => { resolve(true); });
+
+                part.on('error', () => reject(false));
             }
         })
     }
@@ -3751,8 +3752,7 @@ class Jerusalem extends events.EventEmitter {
 
             if (req.body && req.body["base64files"]) {
 
-                console.log;
-                let base64param = req.body['base64param'];
+                let base64param = req.body['base64files'];
                 for (let param of base64param) {
 
                     if (param && param.fileStr && param.fileExt) {

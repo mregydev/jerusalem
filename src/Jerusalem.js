@@ -53,15 +53,13 @@ class Jerusalem extends EventEmitter {
 
             if (req.body && req.body["base64files"]) {
 
-                console.log
-                let base64param = req.body['base64param']
+                let base64param = req.body['base64files']
                 for (let param of base64param) {
 
                     if (param && param.fileStr && param.fileExt) {
                         let file = new File(this.config)
                         file.fetchFileFromStr(param.fileStr, param.fileExt);
                         this.files.push(file)
-                        console.log("here")
                     }
                 }
                 this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
@@ -107,4 +105,4 @@ class Jerusalem extends EventEmitter {
     }
 }
 
-export default Jerusalem;
+export default Jerusalem

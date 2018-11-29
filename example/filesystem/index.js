@@ -1,14 +1,8 @@
 
-import path from 'path'
 
-import uploader from '../../dist/output.mjs'
+const uploader=require('../../dist/output.cjs')
 
-import express from 'express'
-
-import bodyParser from 'body-parser'
-
-
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const express=require('express')
 
 const app = express();
 
@@ -23,11 +17,7 @@ const config = {
     uploadAll: false
 }
 
-//app.use(require('body-parser').urlencoded())
-app.use(bodyParser.json({limit: '50mb'}))
-
 app.use(uploader(config))
-
 
 app.post('/testUpload', (req, res) => {
 

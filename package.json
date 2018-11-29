@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/output.cjs.js",
   "scripts": {
-    "test": "node_modules/.bin/mocha  --compilers js:babel-register tests/*.spec.js",
+    "test": "node_modules/.bin/mocha  --compilers js:@babel/register tests/**/*.spec.js",
     "rollup-cjs": "node_modules/.bin/rollup src/index.js --config rollup.config.js  --file dist/output.cjs.js --format cjs ",
     "build": "npm run rollup-cjs",
     "watch": "node_modules/.bin/gulp watch"
@@ -14,6 +14,7 @@
   "license": "ISC",
   "module": "dist/output.es.js",
   "devDependencies": {
+    "chai": "^4.2.0",
     "eslint": "^5.9.0",
     "rollup": "^0.67.3",
     "rollup-plugin-commonjs": "^9.2.0",
@@ -25,6 +26,7 @@
     "@babel/core": "^7.1.6",
     "@babel/preset-env": "^7.1.6",
     "@babel/register": "^7.0.0",
+    "axios": "^0.18.0",
     "babel-eslint": "^10.0.1",
     "body-parser": "^1.18.3",
     "express": "^4.16.4",
@@ -32,6 +34,7 @@
     "gulp-cli": "^2.0.1",
     "gulp-run": "^1.7.1",
     "memorystream": "^0.3.1",
+    "mocha": "^5.2.0",
     "multiparty": "^4.2.1",
     "nodestream": "^0.7.4",
     "nodestream-filesystem": "^0.7.0",
@@ -39,6 +42,8 @@
     "nodestream-gridfs": "^0.2.0",
     "nodestream-s3": "^0.6.1",
     "rollup-plugin-json": "^3.1.0",
+    "sinon": "^7.1.1",
+    "sinon-chai": "^3.3.0",
     "stream-buffers": "^3.0.2",
     "uuid": "^3.3.2"
   }

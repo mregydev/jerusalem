@@ -13,7 +13,7 @@ class File {
             this.config = config
 
             //set upload option to emty object in case not set
-            this.config.uploadOptions=this.config.uploadOptions||{}
+            this.config.uploadOptions = this.config.uploadOptions || {}
 
         }
     }
@@ -29,8 +29,9 @@ class File {
 
                 part.pipe(this.stream)
 
-                part.on('end', () => {resolve(true)})
-                part.on('error',()=>reject(false))
+                part.on('end', () => { resolve(true) })
+
+                part.on('error', () => reject(false))
             }
         })
     }
