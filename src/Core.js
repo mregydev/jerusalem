@@ -1,10 +1,12 @@
 import multiparty from 'multiparty';
 
-import File from './file';
+import File from './fileHelper';
+
+import Messages from './Messages'
 
 import { EventEmitter } from 'events'
 
-class Jerusalem extends EventEmitter {
+class Core extends EventEmitter {
     constructor(config) {
         super()
         this.files = []
@@ -46,7 +48,11 @@ class Jerusalem extends EventEmitter {
             }
         })
     }
-
+    
+    /**
+     * @param  {} req
+     * Handling request containing files as base64 string
+     */
     handleBase64(req) {
 
         return new Promise((resolve, reject) => {
@@ -55,7 +61,6 @@ class Jerusalem extends EventEmitter {
 
                 let base64param = req.body['base64files']
                 for (let param of base64param) {
-
                     if (param && param.fileStr && param.fileExt) {
                         let file = new File(this.config)
                         file.fetchFileFromStr(param.fileStr, param.fileExt);
@@ -63,16 +68,19 @@ class Jerusalem extends EventEmitter {
                     }
                 }
                 this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
-                    reject(`Problem in uploading files`)
+                    reject(Messages.FilesUploadProblem)
                 })
             }
             else {
-                reject(`base64files paramters not found in json body`)
+                reject(Messages.Base64NotFound)
             }
         })
 
     }
-
+    /**
+     * @param  {} req
+     * Handling request containing multipart form data
+     */
     handleMultiPart(req) {
 
         return new Promise((resolve, reject) => {
@@ -80,7 +88,7 @@ class Jerusalem extends EventEmitter {
 
             form.on('close', () => {
                 this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
-                    reject(`Problem in uploading files`)
+                    reject(Messages.FilesUploadProblem)
                 })
             })
 
@@ -92,17 +100,20 @@ class Jerusalem extends EventEmitter {
                     file.fetchFIleFromPart(part).then(res => {
                         this.files.push(file)
                         part.resume()
-                    }).catch(ex => () => reject(`Problem in uploading file ${part.filename}`))
+                    }).catch(() => reject(Messages.FileUploadProblem(file.partname)))
                 }
             })
 
-            form.on('error', (err) => reject(`Error parsing form ${err.stack}`))
+            
+            form.on('error', (err) => reject(Messages.ParsingError(err.stack)))
 
             form.parse(req)
+
+          
 
         })
 
     }
 }
 
-export default Jerusalem
+export default Core

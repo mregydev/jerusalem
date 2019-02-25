@@ -1,0 +1,5 @@
+--compilers js:@babel/register
+--reporter nyan 
+--require source-map-support/register
+
+tests/**/*.spec.js

@@ -4,10 +4,15 @@
   "description": "",
   "main": "dist/output.cjs.js",
   "scripts": {
-    "test": "node_modules/.bin/mocha  --compilers js:@babel/register tests/**/*.spec.js",
+    "test": "node_modules/.bin/nyc node_modules/.bin/mocha --opts mocha.opts",
+    "integrationTest":"node_modules/.bin/mocha tests/IntegrationTest/Jerusalem.spec.js",
+    "checkCoverage":"node_modules/.bin/nyc check-coverage --statements 50 --lines 50 ",
     "rollup-cjs": "node_modules/.bin/rollup src/index.js --config rollup.config.js  --file dist/output.cjs.js --format cjs ",
     "build": "npm run rollup-cjs",
     "watch": "node_modules/.bin/gulp watch"
+  },
+  "nyc":{
+   "exclude":["tests/**/*.spec.js"]
   },
   "keywords": [],
   "author": "",
@@ -16,11 +21,13 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "eslint": "^5.9.0",
+    "nyc": "^13.3.0",
     "rollup": "^0.67.3",
     "rollup-plugin-commonjs": "^9.2.0",
     "rollup-plugin-eslint": "^5.0.0",
     "rollup-plugin-eslint-bundle": "^5.0.2",
-    "rollup-plugin-node-resolve": "^3.4.0"
+    "rollup-plugin-node-resolve": "^3.4.0",
+    "source-map-support": "^0.5.10"
   },
   "dependencies": {
     "@babel/core": "^7.1.6",

@@ -4,11 +4,7 @@ const uploader = require('../../dist/output.cjs')
 
 const express = require('express')
 
-const axios = require('axios')
-
 const {readFileSync}=require('fs')
-
-const {Buffer}=require('buffer')
 
 const app = express()
 
@@ -39,19 +35,6 @@ app.post('/testUpload', (req, res) => {
 })
 
 
-app.listen(8070, "localhost", () => {
+app.listen(8070, "localhost")
 
-    let fileStr=readFileSync('FileToRead.txt').toString('base64') 
-
-    console.log(fileStr)
-    axios.post('http://localhost:8070/testUpload', {
-        "base64files": [
-            {
-                fileStr,
-                "fileExt": "txt"
-            }
-        ]
-    }, (res) => console.log(res))
-})
-
-console.log("server is listening")
+module.exports=app

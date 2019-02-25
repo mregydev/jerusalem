@@ -52,7 +52,12 @@ export default (config) => {
     }
 }
 
-
+/**
+ * Set error on request object
+ * @param  {} req
+ * @param  {} msg
+ * @param  {} next
+ */
 function SetError(req, msg, next) {
 
     req.uploader.hasError = true

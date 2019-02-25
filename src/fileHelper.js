@@ -1,13 +1,12 @@
 import nodestream from 'nodestream'
 import memoryStream from 'memorystream'
 import uuid from 'uuid/v1'
-import fs from 'fs'
 import streamBuffer from 'stream-buffers'
 
 class File {
     constructor(config) {
 
-        if (config.adapteroptions) {
+        if (config && config.adapteroptions) {
             this.uploader = new nodestream(config.adapteroptions)
 
             this.config = config
@@ -18,7 +17,9 @@ class File {
         }
     }
 
-
+    /**
+     * @param  {} part
+     */
     fetchFIleFromPart(part) {
         return new Promise((resolve, reject) => {
             if (part) {
@@ -36,34 +37,47 @@ class File {
         })
     }
 
-
+    /**
+     * @param  {} str
+     * @param  {} ext
+     */
     fetchFileFromStr(str, ext) {
 
         this.stream = new streamBuffer.ReadableStreamBuffer({
             chunkSize: 2048
         })
 
+        console.log("ok")
         this.stream.put(str, 'base64')
 
 
         this.stream.filename = `${uuid()}.${ext}`
     }
-
+    /**
+     * @return file stream instance
+     */
     get Stream() {
         return this.stream
     }
-
+    /**
+     * @param  {} value
+     * set file stream instance
+     */
     set Stream(value) {
         this.stream = value
     }
-
+    /**
+     * @param  {} config
+     * change uploader adapter
+     */
     changeAdapter(config) {
         if (config.adapteroptions) {
             this.uploader = new nodestream(config.adapteroptions)
             this.config = config
         }
     }
-
+    /**
+     */
     upload() {
         this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename
         return this.uploader.upload(this.stream, this.config.uploadOptions);
