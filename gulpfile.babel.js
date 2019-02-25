@@ -1,16 +1,14 @@
 
-'use strict';
+'use strict'
 
-import gulp from 'gulp';
+import gulp from 'gulp'
 
-import run from 'gulp-run';
-
+import run from 'gulp-run'
 
 gulp.task('build', () => {
-    run('npm run build').exec();
-});
-
+  run('npm run build').exec()
+})
 
 gulp.task('watch', () => {
-    gulp.watch(['src/*.js'], null, ['build']);
-});
+  gulp.watch(['src/*.js'], null, ['build'])
+})

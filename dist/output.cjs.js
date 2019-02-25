@@ -2,6 +2,7 @@
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
+var buffer = _interopDefault(require('buffer'));
 var fs = _interopDefault(require('fs'));
 var os = _interopDefault(require('os'));
 var path = _interopDefault(require('path'));
@@ -10,8 +11,6 @@ var domain = _interopDefault(require('domain'));
 var string_decoder = _interopDefault(require('string_decoder'));
 var util = _interopDefault(require('util'));
 var stream = _interopDefault(require('stream'));
-var buffer = require('buffer');
-var buffer__default = _interopDefault(buffer);
 var events = require('events');
 var events__default = _interopDefault(events);
 
@@ -1466,7 +1465,7 @@ uidSafe.sync = sync$1;
 var safeBuffer = createCommonjsModule(function (module, exports) {
 /* eslint-disable node/no-deprecated-api */
 
-var Buffer = buffer__default.Buffer;
+var Buffer = buffer.Buffer;
 
 // alternative to using Object.keys for old browsers
 function copyProps (src, dst) {
@@ -1475,10 +1474,10 @@ function copyProps (src, dst) {
   }
 }
 if (Buffer.from && Buffer.alloc && Buffer.allocUnsafe && Buffer.allocUnsafeSlow) {
-  module.exports = buffer__default;
+  module.exports = buffer;
 } else {
   // Copy properties from require('buffer')
-  copyProps(buffer__default, exports);
+  copyProps(buffer, exports);
   exports.Buffer = SafeBuffer;
 }
 
@@ -1524,7 +1523,7 @@ SafeBuffer.allocUnsafeSlow = function (size) {
   if (typeof size !== 'number') {
     throw new TypeError('Argument must be a number')
   }
-  return buffer__default.SlowBuffer(size)
+  return buffer.SlowBuffer(size)
 };
 });
 var safeBuffer_1 = safeBuffer.Buffer;
@@ -3638,264 +3637,216 @@ var WritableStreamBuffer = writable_streambuffer;
 streambuffer.ReadableStreamBuffer = ReadableStreamBuffer;
 streambuffer.WritableStreamBuffer = WritableStreamBuffer;
 
-var MultiStream = function (object, options) {
-  if (object instanceof Buffer || typeof object === 'string') {
-    options = options || {};
-    stream.Readable.call(this, {
-      highWaterMark: options.highWaterMark,
-      encoding: options.encoding
-    });
-  } else {
-    stream.Readable.call(this, { objectMode: true });
-  }
-  this._object = object;
-};
-
-util.inherits(MultiStream, stream.Readable);
-
-MultiStream.prototype._read = function () {
-  this.push(this._object);
-  this._object = null;
-};
-
 class File {
-    constructor(config) {
+  constructor (config) {
+    if (config && config.adapteroptions) {
+      this.uploader = new nodestream(config.adapteroptions);
 
-        if (config && config.adapteroptions) {
-            this.uploader = new nodestream(config.adapteroptions);
+      this.config = config;
 
-            this.config = config;
-
-            //set upload option to emty object in case not set
-            this.config.uploadOptions = this.config.uploadOptions || {};
-
-        }
+      // set upload option to emty object in case not set
+      this.config.uploadOptions = this.config.uploadOptions || {};
     }
+  }
 
-    /**
+  /**
      * @param  {} part
      */
-    fetchFIleFromPart(part) {
-        return new Promise((resolve, reject) => {
-            if (part) {
-                //Copy part to pass through stream
-                this.stream = new memorystream();
+  fetchFIleFromPart (part) {
+    return new Promise((resolve, reject) => {
+      if (part) {
+        // Copy part to pass through stream
+        this.stream = new memorystream();
 
-                this.stream.filename = this.config.uniquenames ? `${v1_1()}.${part.filename.match(/\w+/)}` : part.filename;
+        this.stream.filename = this.config.uniquenames ? `${v1_1()}.${part.filename.match(/\w+/)}` : part.filename;
 
-                part.pipe(this.stream);
+        part.pipe(this.stream);
 
-                part.on('end', () => { resolve(true); });
+        part.on('end', () => { resolve(true); });
 
-                part.on('error', () => reject(false));
-            }
-        })
-    }
+        part.on('error', () => reject(false));
+      }
+    })
+  }
 
-    /**
+  /**
      * @param  {} str
      * @param  {} ext
      */
-    fetchFileFromStr(str, ext) {
+  fetchFileFromStr (str, ext) {
+    this.stream = new streambuffer.ReadableStreamBuffer({
+    });
 
-        this.stream = new streambuffer.ReadableStreamBuffer({
-        });
+    this.stream.put(str, 'base64');
 
-        
-        this.stream.put(str, 'base64');
-
-
-        this.stream.filename = `${v1_1()}.${ext}`;
-    }
-    /**
+    this.stream.filename = `${v1_1()}.${ext}`;
+  }
+  /**
      * @return file stream instance
      */
-    get Stream() {
-        return this.stream
-    }
-    /**
+  get Stream () {
+    return this.stream
+  }
+  /**
      * @param  {} value
      * set file stream instance
      */
-    set Stream(value) {
-        this.stream = value;
-    }
-    /**
+  set Stream (value) {
+    this.stream = value;
+  }
+  /**
      * @param  {} config
      * change uploader adapter
      */
-    changeAdapter(config) {
-        if (config.adapteroptions) {
-            this.uploader = new nodestream(config.adapteroptions);
-            this.config = config;
-        }
+  changeAdapter (config) {
+    if (config.adapteroptions) {
+      this.uploader = new nodestream(config.adapteroptions);
+      this.config = config;
     }
-    /**
+  }
+  /**
      */
-    upload() {
-        this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename;
-        return this.uploader.upload(this.stream, this.config.uploadOptions);
-    }
+  upload () {
+    this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename;
+    return this.uploader.upload(this.stream, this.config.uploadOptions)
+  }
 }
 
 var Messages = {
-    Base64NotFound:"base64files paramters not found in json body",
-    FilesUploadProblem:`Problem in uploading files`,
-    FileUploadProblem:(filename)=>`Problem in uploading file ${filename}`,
-    ParsingError:(stack)=>`Error parsing form ${stack}`
+  Base64NotFound: 'base64files paramters not found in json body',
+  FilesUploadProblem: `Problem in uploading files`,
+  FileUploadProblem: (filename) => `Problem in uploading file ${filename}`,
+  ParsingError: (stack) => `Error parsing form ${stack}`
 };
 
 class Core extends events.EventEmitter {
-    constructor(config) {
-        super();
-        this.files = [];
-        this.config = config;
-    }
+  constructor (config) {
+    super();
+    this.files = [];
+    this.config = config;
+  }
 
-    get Files() {
-        return this.files
-    }
+  get Files () {
+    return this.files
+  }
 
-    AddFile(stream$$1) {
-        this.files.push(new file(stream$$1, this.config));
-    }
+  AddFile (stream$$1) {
+    this.files.push(new File(stream$$1, this.config));
+  }
 
-    reset() {
-        this.files = [];
-    }
+  reset () {
+    this.files = [];
+  }
 
-
-    uploadAllFiles(resolve, reject) {
-        let numberUploaded = 0;
-        for (let file of this.files) {
-            file.upload().then(() => {
-                if (++numberUploaded == this.files.length) {
-                    resolve(true);
-                }
-            }).catch(msg => reject(msg));
+  uploadAllFiles (resolve, reject) {
+    let numberUploaded = 0;
+    for (let file of this.files) {
+      file.upload().then(() => {
+        if (++numberUploaded === this.files.length) {
+          resolve(true);
         }
+      }).catch(msg => reject(msg));
     }
+  }
 
+  checkToUploadAllFiles () {
+    return new Promise((resolve, reject) => {
+      if (this.config.uploadAll) {
+        return this.uploadAllFiles()
+      } else {
+        resolve(true);
+      }
+    })
+  }
 
-    checkToUploadAllFiles() {
-        return new Promise((resolve, reject) => {
-            if (this.config.uploadAll) {
-                return this.uploadAllFiles()
-            }
-            else {
-                resolve(true);
-            }
-        })
-    }
-    
-    /**
+  /**
      * @param  {} req
      * Handling request containing files as base64 string
      */
-    handleBase64(req) {
-
-        return new Promise((resolve, reject) => {
-
-            if (req.body && req.body["base64files"]) {
-
-                let base64param = req.body['base64files'];
-                for (let param of base64param) {
-                    if (param && param.fileStr && param.fileExt) {
-                        let file = new File(this.config);
-                        file.fetchFileFromStr(param.fileStr, param.fileExt);
-                        this.files.push(file);
-                    }
-                }
-                this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
-                    reject(Messages.FilesUploadProblem);
-                });
-            }
-            else {
-                reject(Messages.Base64NotFound);
-            }
-        })
-
-    }
-    /**
+  handleBase64 (req) {
+    return new Promise((resolve, reject) => {
+      if (req.body && req.body['base64files']) {
+        let base64param = req.body['base64files'];
+        for (let param of base64param) {
+          if (param && param.fileStr && param.fileExt) {
+            let file = new File(this.config);
+            file.fetchFileFromStr(param.fileStr, param.fileExt);
+            this.files.push(file);
+          }
+        }
+        this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
+          reject(Messages.FilesUploadProblem);
+        });
+      } else {
+        reject(Messages.Base64NotFound);
+      }
+    })
+  }
+  /**
      * @param  {} req
      * Handling request containing multipart form data
      */
-    handleMultiPart(req) {
+  handleMultiPart (req) {
+    return new Promise((resolve, reject) => {
+      let form = new multiparty.Form();
 
-        return new Promise((resolve, reject) => {
-            let form = new multiparty.Form();
+      form.on('close', () => {
+        this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
+          reject(Messages.FilesUploadProblem);
+        });
+      });
 
-            form.on('close', () => {
-                this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
-                    reject(Messages.FilesUploadProblem);
-                });
-            });
+      form.on('part', (part) => {
+        if (part.filename) {
+          let file = new File(this.config);
 
-            form.on('part', (part) => {
+          file.fetchFIleFromPart(part).then(res => {
+            this.files.push(file);
+            part.resume();
+          }).catch(() => reject(Messages.FileUploadProblem(file.partname)));
+        }
+      });
 
-                if (part.filename) {
-                    let file = new File(this.config);
+      form.on('error', (err) => reject(Messages.ParsingError(err.stack)));
 
-                    file.fetchFIleFromPart(part).then(res => {
-                        this.files.push(file);
-                        part.resume();
-                    }).catch(() => reject(Messages.FileUploadProblem(file.partname)));
-                }
-            });
-
-            
-            form.on('error', (err) => reject(Messages.ParsingError(err.stack)));
-
-            form.parse(req);
-
-          
-
-        })
-
-    }
+      form.parse(req);
+    })
+  }
 }
 
 var contentTypes = {
-    JSON:"application/json",
-    FORM:"multipart/form-data"
+  JSON: 'application/json',
+  FORM: 'multipart/form-data'
 };
 
 var index = (config) => {
+  return function (req, res, next) {
+    if (!config.adapteroptions) {
+      SetError(req, `config should contains adapter options`, next);
+    } else {
+      req.uploader = new Core(config);
 
-    return function (req, res, next) {
+      let contentType = req.header('content-type');
 
-        if (!config.adapteroptions) {
-
-            SetError(req, `config should contains adapter options`, next);
+      if (!contentType) {
+        SetError(req, 'No Content Type', next);
+      } else {
+        if (contentType.indexOf(contentTypes.JSON) > -1) {
+          req.uploader.handleBase64(req).then(() => {
+            next();
+          }).catch((msg) => {
+            SetError(req, msg, next);
+          });
+        } else if (contentType.indexOf(contentTypes.FORM) > -1) {
+          req.uploader.handleMultiPart(req).then(() => {
+            next();
+          }).catch((msg) => {
+            SetError(req, msg, next);
+          });
         }
-        else {
-
-            req.uploader  = new Core(config);
-
-            let contentType = req.header('content-type');
-
-            if (!contentType) {
-                SetError(req,'No Content Type',next);
-            }
-            else {
-                
-                if (contentType.indexOf(contentTypes.JSON) > -1) {
-                    req.uploader.handleBase64(req).then(() => {
-                        next();
-                    }).catch((msg) => {
-                        SetError(req, msg, next);
-                    });
-                }
-                else if (contentType.indexOf(contentTypes.FORM) > -1) {
-                    req.uploader.handleMultiPart(req).then(() => {
-                        next();
-                    }).catch((msg) => {
-                        SetError(req, msg, next);
-                    });
-                }
-            }
-        }
+      }
     }
+  }
 };
 
 /**
@@ -3904,12 +3855,10 @@ var index = (config) => {
  * @param  {} msg
  * @param  {} next
  */
-function SetError(req, msg, next) {
-
-    req.uploader.hasError = true;
-    req.uploader.errorMsg = msg;
-    next();
-
+function SetError (req, msg, next) {
+  req.uploader.hasError = true;
+  req.uploader.errorMsg = msg;
+  next();
 }
 
 module.exports = index;

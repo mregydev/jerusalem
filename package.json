@@ -9,7 +9,8 @@
     "checkCoverage": "node_modules/.bin/nyc check-coverage --statements 50 --lines 50 ",
     "rollup-cjs": "node_modules/.bin/rollup src/index.js --config rollup.config.js  --file dist/output.cjs.js --format cjs ",
     "build": "npm run rollup-cjs",
-    "watch": "node_modules/.bin/gulp watch"
+    "watch": "node_modules/.bin/gulp watch",
+    "lint": "node_modules/.bin/eslint --fix ./src/**/{*.js,*.spec.js}"
   },
   "nyc": {
     "exclude": [
@@ -22,7 +23,13 @@
   "module": "dist/output.es.js",
   "devDependencies": {
     "chai": "^4.2.0",
-    "eslint": "^5.9.0",
+    "eslint": "^5.14.1",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-node": "^8.0.1",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-standard": "^4.0.0",
+    "lint": "^1.1.2",
     "nyc": "^13.3.0",
     "rollup": "^0.67.3",
     "rollup-plugin-commonjs": "^9.2.0",
