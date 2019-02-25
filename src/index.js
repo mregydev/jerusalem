@@ -1,13 +1,5 @@
 
-import Jerusalem from './Jerusalem'
-function isInstalled(modulename)
-{
-    return true
-}
-
-
-
-import multiparty from 'multiparty'
+import Jerusalem from './Core'
 
 import contentTypes from './contentTypes'
 

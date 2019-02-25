@@ -26,12 +26,12 @@ app.use(uploader(config))
 
 app.post('/testUpload', (req, res) => {
 
-    
     for (var file of req.uploader.Files) {
-        file.upload().then(console.log(file.stream.filename))
+        file.upload()
+
+        res.send(file.stream.filename)
     }
-    
-    res.send(`file is uploaded and their count is ${req.uploader.Files.length}`)
+  
 })
 
 

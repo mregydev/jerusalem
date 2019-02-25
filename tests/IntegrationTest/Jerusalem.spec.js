@@ -16,12 +16,17 @@ describe('Jerusalem test cases', () => {
                     "fileExt": "txt"
                 }
             ]
-        }, (res) => {
+        }).then(res=>{
+            
+            setTimeout(() => {
+                
+                readFileSync(`${__dirname}/storage3/${res.data}`).toString().replace(/\u0000/g,'').trim().should.equals(readFileSync(`${__dirname}/FileToExpect.txt`).toString().trim())
 
-            console.log("heeeeeeeere")
-            console.log(`${__dirname}/storage3/${res}`)
-            //readFileSync(`${__dirname}/storage3/${res}`).toString().trim().should.equals(readFileSync(`${__dirname}/FileToExpect.txt`).toString().trim())
-            done()
+                done()
+                
+            }, 10);
+        
+            
         })
 
     })

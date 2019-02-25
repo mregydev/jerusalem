@@ -1,7 +1,9 @@
 import nodestream from 'nodestream'
-import memoryStream from 'memorystream'
+import memoryStream from 'memorystream' 
 import uuid from 'uuid/v1'
 import streamBuffer from 'stream-buffers'
+import streamfier from 'streamifier'
+import { Buffer } from 'buffer';
 
 class File {
     constructor(config) {
@@ -44,10 +46,9 @@ class File {
     fetchFileFromStr(str, ext) {
 
         this.stream = new streamBuffer.ReadableStreamBuffer({
-            chunkSize: 2048
         })
 
-        console.log("ok")
+        
         this.stream.put(str, 'base64')
 
 

@@ -2,15 +2,16 @@
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var buffer = _interopDefault(require('buffer'));
+var fs = _interopDefault(require('fs'));
 var os = _interopDefault(require('os'));
 var path = _interopDefault(require('path'));
 var crypto = _interopDefault(require('crypto'));
 var domain = _interopDefault(require('domain'));
 var string_decoder = _interopDefault(require('string_decoder'));
-var fs = _interopDefault(require('fs'));
 var util = _interopDefault(require('util'));
 var stream = _interopDefault(require('stream'));
+var buffer = require('buffer');
+var buffer__default = _interopDefault(buffer);
 var events = require('events');
 var events__default = _interopDefault(events);
 
@@ -1465,7 +1466,7 @@ uidSafe.sync = sync$1;
 var safeBuffer = createCommonjsModule(function (module, exports) {
 /* eslint-disable node/no-deprecated-api */
 
-var Buffer = buffer.Buffer;
+var Buffer = buffer__default.Buffer;
 
 // alternative to using Object.keys for old browsers
 function copyProps (src, dst) {
@@ -1474,10 +1475,10 @@ function copyProps (src, dst) {
   }
 }
 if (Buffer.from && Buffer.alloc && Buffer.allocUnsafe && Buffer.allocUnsafeSlow) {
-  module.exports = buffer;
+  module.exports = buffer__default;
 } else {
   // Copy properties from require('buffer')
-  copyProps(buffer, exports);
+  copyProps(buffer__default, exports);
   exports.Buffer = SafeBuffer;
 }
 
@@ -1523,7 +1524,7 @@ SafeBuffer.allocUnsafeSlow = function (size) {
   if (typeof size !== 'number') {
     throw new TypeError('Argument must be a number')
   }
-  return buffer.SlowBuffer(size)
+  return buffer__default.SlowBuffer(size)
 };
 });
 var safeBuffer_1 = safeBuffer.Buffer;
@@ -3061,7 +3062,7 @@ var pipeline = Pipeline;
 var isInstalled = function isInstalled(moduleName) {
   try {
     // eslint-disable-next-line global-require
-   // require.resolve(moduleName)
+    require.resolve(moduleName);
 
     return true
   } catch (err) {
@@ -3637,10 +3638,30 @@ var WritableStreamBuffer = writable_streambuffer;
 streambuffer.ReadableStreamBuffer = ReadableStreamBuffer;
 streambuffer.WritableStreamBuffer = WritableStreamBuffer;
 
+var MultiStream = function (object, options) {
+  if (object instanceof Buffer || typeof object === 'string') {
+    options = options || {};
+    stream.Readable.call(this, {
+      highWaterMark: options.highWaterMark,
+      encoding: options.encoding
+    });
+  } else {
+    stream.Readable.call(this, { objectMode: true });
+  }
+  this._object = object;
+};
+
+util.inherits(MultiStream, stream.Readable);
+
+MultiStream.prototype._read = function () {
+  this.push(this._object);
+  this._object = null;
+};
+
 class File {
     constructor(config) {
 
-        if (config.adapteroptions) {
+        if (config && config.adapteroptions) {
             this.uploader = new nodestream(config.adapteroptions);
 
             this.config = config;
@@ -3651,7 +3672,9 @@ class File {
         }
     }
 
-
+    /**
+     * @param  {} part
+     */
     fetchFIleFromPart(part) {
         return new Promise((resolve, reject) => {
             if (part) {
@@ -3669,41 +3692,60 @@ class File {
         })
     }
 
-
+    /**
+     * @param  {} str
+     * @param  {} ext
+     */
     fetchFileFromStr(str, ext) {
 
         this.stream = new streambuffer.ReadableStreamBuffer({
-            chunkSize: 2048
         });
 
+        
         this.stream.put(str, 'base64');
 
 
         this.stream.filename = `${v1_1()}.${ext}`;
     }
-
+    /**
+     * @return file stream instance
+     */
     get Stream() {
         return this.stream
     }
-
+    /**
+     * @param  {} value
+     * set file stream instance
+     */
     set Stream(value) {
         this.stream = value;
     }
-
+    /**
+     * @param  {} config
+     * change uploader adapter
+     */
     changeAdapter(config) {
         if (config.adapteroptions) {
             this.uploader = new nodestream(config.adapteroptions);
             this.config = config;
         }
     }
-
+    /**
+     */
     upload() {
         this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename;
         return this.uploader.upload(this.stream, this.config.uploadOptions);
     }
 }
 
-class Jerusalem extends events.EventEmitter {
+var Messages = {
+    Base64NotFound:"base64files paramters not found in json body",
+    FilesUploadProblem:`Problem in uploading files`,
+    FileUploadProblem:(filename)=>`Problem in uploading file ${filename}`,
+    ParsingError:(stack)=>`Error parsing form ${stack}`
+};
+
+class Core extends events.EventEmitter {
     constructor(config) {
         super();
         this.files = [];
@@ -3745,7 +3787,11 @@ class Jerusalem extends events.EventEmitter {
             }
         })
     }
-
+    
+    /**
+     * @param  {} req
+     * Handling request containing files as base64 string
+     */
     handleBase64(req) {
 
         return new Promise((resolve, reject) => {
@@ -3754,25 +3800,26 @@ class Jerusalem extends events.EventEmitter {
 
                 let base64param = req.body['base64files'];
                 for (let param of base64param) {
-
                     if (param && param.fileStr && param.fileExt) {
                         let file = new File(this.config);
                         file.fetchFileFromStr(param.fileStr, param.fileExt);
                         this.files.push(file);
-                        console.log("here");
                     }
                 }
                 this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
-                    reject(`Problem in uploading files`);
+                    reject(Messages.FilesUploadProblem);
                 });
             }
             else {
-                reject(`base64files paramters not found in json body`);
+                reject(Messages.Base64NotFound);
             }
         })
 
     }
-
+    /**
+     * @param  {} req
+     * Handling request containing multipart form data
+     */
     handleMultiPart(req) {
 
         return new Promise((resolve, reject) => {
@@ -3780,7 +3827,7 @@ class Jerusalem extends events.EventEmitter {
 
             form.on('close', () => {
                 this.checkToUploadAllFiles().then(() => resolve(true)).catch((msg) => {
-                    reject(`Problem in uploading files`);
+                    reject(Messages.FilesUploadProblem);
                 });
             });
 
@@ -3792,13 +3839,16 @@ class Jerusalem extends events.EventEmitter {
                     file.fetchFIleFromPart(part).then(res => {
                         this.files.push(file);
                         part.resume();
-                    }).catch(ex => () => reject(`Problem in uploading file ${part.filename}`));
+                    }).catch(() => reject(Messages.FileUploadProblem(file.partname)));
                 }
             });
 
-            form.on('error', (err) => reject(`Error parsing form ${err.stack}`));
+            
+            form.on('error', (err) => reject(Messages.ParsingError(err.stack)));
 
             form.parse(req);
+
+          
 
         })
 
@@ -3820,7 +3870,7 @@ var index = (config) => {
         }
         else {
 
-            req.uploader  = new Jerusalem(config);
+            req.uploader  = new Core(config);
 
             let contentType = req.header('content-type');
 
@@ -3848,7 +3898,12 @@ var index = (config) => {
     }
 };
 
-
+/**
+ * Set error on request object
+ * @param  {} req
+ * @param  {} msg
+ * @param  {} next
+ */
 function SetError(req, msg, next) {
 
     req.uploader.hasError = true;

@@ -5,14 +5,16 @@
   "main": "dist/output.cjs.js",
   "scripts": {
     "test": "node_modules/.bin/nyc node_modules/.bin/mocha --opts mocha.opts",
-    "integrationTest":"node_modules/.bin/mocha tests/IntegrationTest/Jerusalem.spec.js",
-    "checkCoverage":"node_modules/.bin/nyc check-coverage --statements 50 --lines 50 ",
+    "integrationTest": "node_modules/.bin/mocha tests/IntegrationTest/Jerusalem.spec.js",
+    "checkCoverage": "node_modules/.bin/nyc check-coverage --statements 50 --lines 50 ",
     "rollup-cjs": "node_modules/.bin/rollup src/index.js --config rollup.config.js  --file dist/output.cjs.js --format cjs ",
     "build": "npm run rollup-cjs",
     "watch": "node_modules/.bin/gulp watch"
   },
-  "nyc":{
-   "exclude":["tests/**/*.spec.js"]
+  "nyc": {
+    "exclude": [
+      "tests/**/*.spec.js"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -52,6 +54,7 @@
     "sinon": "^7.1.1",
     "sinon-chai": "^3.3.0",
     "stream-buffers": "^3.0.2",
+    "streamifier": "^0.1.1",
     "uuid": "^3.3.2"
   }
 }
