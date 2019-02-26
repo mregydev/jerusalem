@@ -11,7 +11,7 @@
     "build": "npm run rollup-cjs",
     "watch": "node_modules/.bin/gulp watch",
     "lint": "node_modules/.bin/eslint --fix ./src/**/{*.js,*.spec.js}",
-    "ci":"npm run lint && npm run test && npm run report"
+    "ci":"npm run lint && npm run test"
   },
   "keywords": [],
   "author": "",
