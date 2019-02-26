@@ -44,7 +44,6 @@ class File {
     })
 
     this.stream.put(str, 'base64')
-
     this.stream.filename = `${uuid()}.${ext}`
   }
   /**
