@@ -1,5 +1,5 @@
 node_modules
-.nyc_ouput
 coverage
 dist
 .sonarlist
+.nyc_output
