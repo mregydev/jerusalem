@@ -26,11 +26,9 @@ class File {
 
         this.stream.filename = this.config.uniquenames ? `${uuid()}.${part.filename.match(/\w+/)}` : part.filename
 
-        part.pipe(this.stream)
+        this.part = part
 
-        part.on('end', () => { resolve(true) })
-
-        part.on('error', () => reject(false))
+        resolve(true)
       }
     })
   }
@@ -43,8 +41,7 @@ class File {
     this.stream = new streamBuffer.ReadableStreamBuffer({
     })
 
-    this.stream.put(str, 'base64')
-    this.stream.filename = `${uuid()}.${ext}`
+    this.base64Str = str
   }
   /**
      * @return file stream instance
@@ -72,8 +69,17 @@ class File {
   /**
      */
   upload () {
-    this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename
-    return this.uploader.upload(this.stream, this.config.uploadOptions)
+    let res = this.uploader.upload(this.stream, this.config.uploadOptions)
+    if (this.base64Str) {
+      this.stream.put(this.base64Str, 'base64')
+      this.stream.stop()
+
+      delete this.base64Str
+    } else if (this.part) {
+      this.part.pipe(this.stream)
+      delete this.part
+    }
+    return res
   }
 }
 

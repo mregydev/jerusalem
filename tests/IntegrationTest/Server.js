@@ -25,9 +25,7 @@ app.use(uploader(config))
 
 app.post('/testUpload', (req, res) => {
   for (var file of req.uploader.Files) {
-    file.upload()
-
-    res.send(file.stream.filename)
+    file.upload().then((data) => res.send(data.location))
   }
 })
 

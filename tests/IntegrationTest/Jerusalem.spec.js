@@ -17,6 +17,7 @@ describe('Jerusalem test cases', () => {
       ]
     }).then(res => {
       setTimeout(() => {
+        // eslint-disable-next-line no-control-regex
         readFileSync(`${__dirname}/storage3/${res.data}`).toString().replace(/\u0000/g, '').trim().should.equals(readFileSync(`${__dirname}/FileToExpect.txt`).toString().trim())
 
         done()

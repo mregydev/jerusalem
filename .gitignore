@@ -3,3 +3,4 @@ coverage
 dist
 .sonarlist
 .nyc_output
+tests/IntegrationTest/storage3
