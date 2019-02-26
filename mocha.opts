@@ -2,4 +2,4 @@
 --reporter nyan 
 --require source-map-support/register
 
-tests/**/*.spec.js
+tests/Unittests/**/*.spec.js
