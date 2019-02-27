@@ -42,6 +42,8 @@ class File {
     })
 
     this.base64Str = str
+
+    this.stream.filename = `${uuid()}.${ext}`
   }
   /**
      * @return file stream instance
@@ -69,6 +71,8 @@ class File {
   /**
      */
   upload () {
+    this.config.uploadOptions.name = this.config.uploadOptions.filename || this.stream.filename
+
     let res = this.uploader.upload(this.stream, this.config.uploadOptions)
     if (this.base64Str) {
       this.stream.put(this.base64Str, 'base64')
